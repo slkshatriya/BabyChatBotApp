@@ -4,6 +4,7 @@ import static android.content.ContentValues.TAG;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -28,16 +29,19 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.HashMap;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private HashMap<String, String> map = new HashMap<>();
+    private TextToSpeech mTTS;
     private TextView outputTextView;
     private TextInputEditText inputEditText;
     private TextInputEditText responseEditText;
     private static final String DATA_FILE = "chatbot_data.txt";
     private static final String API_ENDPOINT = "https://api.wolframalpha.com/v2/result";
     private static final String API_KEY = "4Y4JEU-PHGXUA9APE";
+    private Button trainButton,chatButton, questionButton, clearButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,10 +51,34 @@ public class MainActivity extends AppCompatActivity {
         outputTextView = findViewById(R.id.outputTextView);
         inputEditText = findViewById(R.id.inputEditText);
         responseEditText = findViewById(R.id.responseEditText);
+        trainButton = findViewById(R.id.trainButton);
+        chatButton = findViewById(R.id.chatButton);
+        questionButton = findViewById(R.id.questionButton);
+        clearButton = findViewById(R.id.clearButton);
+
+        mTTS = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = mTTS.setLanguage(Locale.US);
+
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        Log.e("TTS", "Language not supported");
+                    } else {
+                        trainButton.setEnabled(true);
+                        chatButton.setEnabled(true);
+                        questionButton.setEnabled(true);
+                    }
+                } else {
+                    Log.e("TTS", "Initialization failed");
+                }
+            }
+        });
 
         loadDataFromFile();
 
-        Button trainButton = findViewById(R.id.trainButton);
+
         trainButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -58,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button chatButton = findViewById(R.id.chatButton);
+
         chatButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -66,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button questionButton = findViewById(R.id.questionButton);
+
         questionButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -74,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button clearButton = findViewById(R.id.clearButton);
+
         clearButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -92,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
         saveDataToFile();
 
         outputTextView.setText("I have learned a new thing :)");
+        mTTS.speak("I have learned a new thing", TextToSpeech.QUEUE_FLUSH, null);
 
         inputEditText.setText("");
         responseEditText.setText("");
@@ -103,8 +132,11 @@ public class MainActivity extends AppCompatActivity {
         if (map.containsKey(input)) {
             String response = map.get(input);
             outputTextView.setText(response);
+            mTTS.speak(response, TextToSpeech.QUEUE_FLUSH, null);
         } else {
             outputTextView.setText("Sorry, I haven't been trained for this input :(");
+            mTTS.speak("Sorry, I haven't been trained for this input", TextToSpeech.QUEUE_FLUSH, null);
+
         }
 
 
@@ -160,10 +192,12 @@ public class MainActivity extends AppCompatActivity {
             if (result != null) {
                 // Process the result or update UI
                 outputTextView.setText("The answer is: " + result);
+                mTTS.speak("The answer is: " + result, TextToSpeech.QUEUE_FLUSH, null);
                 inputEditText.setText("");
             } else {
                 // Handle the case when result is null
                 outputTextView.setText("An error occurred during API request");
+                mTTS.speak("An error occurred during API request", TextToSpeech.QUEUE_FLUSH, null);
                 inputEditText.setText("");
             }
         }
@@ -247,5 +281,14 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "Failed to save data", Toast.LENGTH_SHORT).show();
         }
+    }
+    @Override
+    protected void onDestroy() {
+        if (mTTS != null) {
+            mTTS.stop();
+            mTTS.shutdown();
+        }
+
+        super.onDestroy();
     }
 }
